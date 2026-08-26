@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Симулятор ДСП — Пионерская</title>
+<style>
+:root{--bg:#11161c;--panel:#1b222b;--panel2:#232c36;--line:#050505;--text:#e9eef3;--muted:#98a5b3;--green:#20d86a;--red:#ff3d3d;--yellow:#ffd21c;--blue:#294bff;--cyan:#25b9ff;--orange:#ff9d00}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif;overflow:hidden}
+header{height:58px;background:#0b0f14;border-bottom:1px solid #39424d;display:flex;align-items:center;justify-content:space-between;padding:0 18px}
+header h1{font-size:20px;margin:0} header .sub{font-size:12px;color:var(--muted);margin-top:3px}.clock{font:700 18px monospace}
+main{height:calc(100vh - 58px);display:grid;grid-template-columns:minmax(700px,1fr) 365px;gap:10px;padding:10px}
+.board{background:#f4f4ef;border:7px solid #3b4147;border-radius:10px;position:relative;overflow:hidden;min-width:0;box-shadow:0 8px 30px #0008}
+svg{width:100%;height:100%;display:block;background:#f7f7f2}
+.track{stroke:var(--line);stroke-width:7;fill:none;stroke-linecap:round;stroke-linejoin:round}.platform{fill:#294bff;opacity:.9}.platform-label{fill:#1730ad;font-size:15px;font-weight:700}.label{font-size:17px;font-weight:700;fill:#111}.small{font-size:13px;font-weight:700;fill:#111}.section{stroke:#555;stroke-width:2;stroke-dasharray:5 5;opacity:.45}.route{stroke:#ff9d00;stroke-width:10;opacity:.7;fill:none;stroke-linecap:round}.route.locked{stroke:#20d86a}.train{fill:#ff7a00;stroke:#111;stroke-width:3}.signal{stroke:#111;stroke-width:3;cursor:pointer}.sig-p{fill:#2a2a2a}.sig-red{fill:#e31e24}.sig-green{fill:#20d86a}.sig-white{fill:#f4f4f4}.sig-yellow{fill:#ffd21c}.sig-blue{fill:#25b9ff}.switch{stroke:#111;stroke-width:5;fill:none;stroke-linecap:round}.switch.plus{stroke:#d6a600}.switch.minus{stroke:#d6a600}.switch-hit{stroke:transparent;stroke-width:22;cursor:pointer}.switch-text{font-size:15px;font-weight:800;fill:#d10000}.signal-text{font-size:15px;font-weight:800;fill:#087b36}.man-text{fill:#008bbf}.zone{font-size:13px;font-weight:700;fill:#777}
+.sidebar{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto}.card{background:var(--panel);border:1px solid #38424d;border-radius:9px;padding:12px}.card h2{font-size:15px;margin:0 0 9px}.hint{font-size:12px;color:var(--muted);line-height:1.4}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.btn{border:1px solid #46525f;background:var(--panel2);color:var(--text);border-radius:6px;padding:8px 6px;cursor:pointer;font-weight:700}.btn:hover{filter:brightness(1.2)}.btn.active{outline:2px solid var(--cyan)}.btn.danger{border-color:#a73737}.btn.green{border-color:#1d8e4b}.btn.yellow{border-color:#aa8b00}.status{display:grid;grid-template-columns:1fr 1fr;gap:6px}.pill{background:#111820;border:1px solid #35404c;border-radius:6px;padding:7px;font-size:12px}.pill b{display:block;font-size:14px;margin-top:2px}.ok{color:var(--green)}.bad{color:var(--red)}.warn{color:var(--yellow)}
+.log{height:170px;overflow:auto;background:#0d1217;border-radius:6px;padding:7px;font:12px/1.45 monospace}.log div{border-bottom:1px solid #202932;padding:2px 0}.route-list{display:flex;flex-direction:column;gap:5px}.route-row{display:flex;justify-content:space-between;gap:6px;background:#111820;border:1px solid #303b46;border-radius:6px;padding:7px;font-size:12px}.route-row .state{font-weight:700}.selected{outline:2px solid var(--cyan)}
+@media(max-width:1000px){body{overflow:auto}main{height:auto;grid-template-columns:1fr}.board{height:650px}.sidebar{overflow:visible}}
+</style>
+</head>
+<body>
+<header><div><h1>Симулятор ДСП — станция Пионерская</h1><div class="sub">Сословобор ← Пионерская → Заслонова · учебная модель ЭЦ</div></div><div class="clock" id="clock">00:00:00</div></header>
+<main>
+<section class="board" id="board">
+<svg id="scheme" viewBox="0 0 1200 650" preserveAspectRatio="xMidYMid meet" aria-label="Схема станции Пионерская">
+  <!-- платформы -->
+  <rect class="platform" x="445" y="214" width="340" height="18" rx="3"/><rect class="platform" x="445" y="335" width="340" height="18" rx="3"/>
+  <text class="platform-label" x="570" y="207">ПЛАТФОРМА 1</text><text class="platform-label" x="570" y="374">ПЛАТФОРМА 2</text>
+  <!-- пути 1/2 -->
+  <path id="track1" class="track" d="M70 250 H430 L500 250 H790 L865 185 H1110"/>
+  <path id="track2" class="track" d="M70 390 H410 L470 330 H790 L865 395 H1110"/>
+  <!-- маневровые пути -->
+  <path id="track4" class="track" d="M470 330 L520 455 H850"/>
+  <path id="track6" class="track" d="M470 330 L540 520 H850"/>
+  <!-- боковые/горловины -->
+  <path class="track" d="M70 250 L35 215 L35 135 L90 95 L150 95 L185 135 L185 205"/>
+  <path class="track" d="M1110 250 L1150 210 L1150 110 L1110 70 L1040 70 L1000 110 L1000 250"/>
+  <path class="track" d="M70 390 L35 420 L35 505 L110 550 L185 550 L215 515 L215 390"/>
+  <!-- блок-участки -->
+  <line class="section" x1="240" y1="238" x2="240" y2="270"/><line class="section" x1="385" y1="238" x2="385" y2="270"/><line class="section" x1="650" y1="238" x2="650" y2="270"/><line class="section" x1="880" y1="238" x2="880" y2="270"/>
+  <line class="section" x1="240" y1="378" x2="240" y2="402"/><line class="section" x1="650" y1="378" x2="650" y2="402"/><line class="section" x1="880" y1="378" x2="880" y2="402"/>
+  <text class="zone" x="270" y="225">Б1</text><text class="zone" x="510" y="225">П1</text><text class="zone" x="705" y="225">Н1</text><text class="zone" x="930" y="225">ЗН</text>
+  <text class="zone" x="270" y="420">Б2</text><text class="zone" x="535" y="420">П2</text><text class="zone" x="700" y="420">С2</text>
+  <!-- стрелки, 1,2,3,4,6,8 -->
+  <g id="sw1"><path class="switch plus" d="M185 250 L215 250 L250 300"/><path class="switch-hit" d="M185 250 L215 250 L250 300"/><text class="switch-text" x="205" y="285">1</text></g>
+  <g id="sw2"><path class="switch plus" d="M410 250 L445 250 L485 330"/><path class="switch-hit" d="M410 250 L445 250 L485 330"/><text class="switch-text" x="428" y="286">2</text></g>
+  <g id="sw3"><path class="switch plus" d="M790 250 L825 250 L865 185"/><path class="switch-hit" d="M790 250 L825 250 L865 185"/><text class="switch-text" x="806" y="214">3</text></g>
+  <g id="sw4"><path class="switch plus" d="M790 390 L825 390 L865 395"/><path class="switch-hit" d="M790 390 L825 390 L865 395"/><text class="switch-text" x="806" y="425">4</text></g>
+  <g id="sw6"><path class="switch plus" d="M470 330 L520 455"/><path class="switch-hit" d="M470 330 L520 455"/><text class="switch-text" x="480" y="410">6</text></g>
+  <g id="sw8"><path class="switch plus" d="M470 330 L540 520"/><path class="switch-hit" d="M470 330 L540 520"/><text class="switch-text" x="492" y="492">8</text></g>
+  <!-- поездные светофоры -->
+  <g class="sig" data-signal="N"><circle class="signal sig-red" cx="385" cy="215" r="9"/><text class="signal-text" x="375" y="195">N</text></g>
+  <g class="sig" data-signal="N1"><circle class="signal sig-red" cx="790" cy="215" r="9"/><text class="signal-text" x="782" y="195">N1</text></g>
+  <g class="sig" data-signal="NS"><circle class="signal sig-red" cx="865" cy="160" r="9"/><text class="signal-text" x="850" y="142">NS</text></g>
+  <g class="sig" data-signal="CS"><circle class="signal sig-red" cx="445" cy="315" r="9"/><text class="signal-text" x="430" y="300">CS</text></g>
+  <g class="sig" data-signal="C"><circle class="signal sig-red" cx="790" cy="355" r="9"/><text class="signal-text" x="784" y="338">C</text></g>
+  <g class="sig" data-signal="C1"><circle class="signal sig-red" cx="865" cy="380" r="9"/><text class="signal-text" x="855" y="365">C1</text></g>
+  <g class="sig" data-signal="C2"><circle class="signal sig-red" cx="865" cy="420" r="9"/><text class="signal-text" x="855" y="445">C2</text></g>
+  <g class="sig" data-signal="CZ"><circle class="signal sig-red" cx="1000" cy="375" r="9"/><text class="signal-text" x="990" y="355">CZ</text></g>
+  <g class="sig" data-signal="NZ"><circle class="signal sig-red" cx="1000" cy="230" r="9"/><text class="signal-text" x="990" y="210">NZ</text></g>
+  <!-- маневровые -->
+  <g class="sig" data-signal="M1"><circle class="signal sig-blue" cx="675" cy="280" r="8"/><text class="signal-text man-text" x="662" y="305">M1</text></g>
+  <g class="sig" data-signal="M2"><circle class="signal sig-blue" cx="675" cy="350" r="8"/><text class="signal-text man-text" x="662" y="375">M2</text></g>
+  <g class="sig" data-signal="M4"><circle class="signal sig-blue" cx="520" cy="435" r="8"/><text class="signal-text man-text" x="502" y="430">M4</text></g>
+  <g class="sig" data-signal="M6"><circle class="signal sig-blue" cx="540" cy="500" r="8"/><text class="signal-text man-text" x="550" y="510">M6</text></g>
+  <!-- названия станций -->
+  <text class="label" x="45" y="65">СОСЛОВОБОР</text><text class="label" x="545" y="110">ПИОНЕРСКАЯ</text><text class="label" x="1010" y="50">ЗАСЛОНОВА</text>
+  <text class="small" x="735" y="475">МАНЕВРОВЫЕ ПУТИ</text><text class="small" x="735" y="492">M4 / M6 · АНГАР</text>
+  <!-- route highlight --> <path id="routePath" class="route" d=""/>
+  <!-- train --> <circle id="train" class="train" cx="120" cy="250" r="12" style="display:none"/><text id="trainLabel" class="small" x="0" y="0" style="display:none">ПОЕЗД</text>
+</svg>
+</section>
+<aside class="sidebar">
+ <div class="card"><h2>Управление стрелками</h2><div class="grid" id="switchBtns"></div><div class="hint" style="margin-top:8px">Клик по стрелке на схеме или кнопке: перевод + ↔ −. При установленном маршруте стрелка блокируется.</div></div>
+ <div class="card"><h2>Маршруты</h2><div class="hint">Можно выбрать готовый маршрут или нажать два светофора на схеме: первый — начало, второй — конец.</div><div class="grid" style="margin-top:8px"><button class="btn" data-route="NZ-N">NZ → N</button><button class="btn" data-route="N-N1">N → N1</button><button class="btn" data-route="N1-NS">N1 → NS</button><button class="btn" data-route="NS-CS">NS → CS</button><button class="btn" data-route="C-C1">C → C1</button><button class="btn" data-route="C-C2">C → C2</button><button class="btn" data-route="C1-CZ">C1 → CZ</button><button class="btn" data-route="CZ-NZ">CZ → NZ</button></div><div style="display:flex;gap:6px;margin-top:8px"><button class="btn green" id="setRoute">Установить маршрут</button><button class="btn danger" id="cancelRoute">Отмена</button></div></div>
+ <div class="card"><h2>Сигналы</h2><div class="grid" id="signalBtns"></div><div style="display:flex;gap:6px;margin-top:8px"><button class="btn green" id="invite">Пригласительный</button><button class="btn" id="closeAll">Закрыть все</button></div></div>
+ <div class="card"><h2>Состояние станции</h2><div class="status"><div class="pill">Стрелки<b id="switchState">+</b></div><div class="pill">Маршрут<b id="routeState">Нет</b></div><div class="pill">Путь 1<b class="ok">Свободен</b></div><div class="pill">Путь 2<b class="ok">Свободен</b></div></div></div>
+ <div class="card"><h2>Установленные маршруты</h2><div class="route-list" id="routeList"><div class="hint">Нет установленных маршрутов</div></div></div>
+ <div class="card"><h2>Журнал ДСП</h2><div class="log" id="log"></div></div>
+</aside>
+</main>
+<script>
+const switches={1:'+',2:'+',3:'+',4:'+',6:'+',8:'+'};
+const signals={N:'red',N1:'red',NS:'red',CS:'red',C:'red',C1:'red',C2:'red',CZ:'red',NZ:'red',M1:'blue',M2:'blue',M4:'blue',M6:'blue'};
+const routes={
+ 'NZ-N':{from:'NZ',to:'N',sw:{},kind:'train',text:'NZ → N'},
+ 'N-N1':{from:'N',to:'N1',sw:{},kind:'train',text:'N → N1'},
+ 'N1-NS':{from:'N1',to:'NS',sw:{3:'+'},kind:'train',text:'N1 → NS'},
+ 'NS-CS':{from:'NS',to:'CS',sw:{2:'+'},kind:'train',text:'NS → CS'},
+ 'C-C1':{from:'C',to:'C1',sw:{4:'+',3:'+'},kind:'train',text:'C → C1'},
+ 'C-C2':{from:'C',to:'C2',sw:{4:'-',3:'-'},kind:'train',text:'C → C2'},
+ 'C1-CZ':{from:'C1',to:'CZ',sw:{4:'+'},kind:'train',text:'C1 → CZ'},
+ 'CZ-NZ':{from:'CZ',to:'NZ',sw:{3:'+'},kind:'train',text:'CZ → NZ'},
+ 'M1-N1':{from:'M1',to:'N1',sw:{3:'+'},kind:'shunt',text:'M1 → N1'},
+ 'M2-C2':{from:'M2',to:'C2',sw:{4:'-'},kind:'shunt',text:'M2 → C2'},
+ 'M4-M6':{from:'M4',to:'M6',sw:{6:'-',8:'-'},kind:'shunt',text:'M4 → M6'}
+};
+let selectedRoute=null, routeStart=null, routeEnd=null, invite=false;
+const $=s=>document.querySelector(s); const $$=s=>[...document.querySelectorAll(s)];
+function log(t){const d=document.createElement('div');d.textContent=`[${new Date().toLocaleTimeString('ru-RU')}] ${t}`;$('#log').prepend(d)}
+function buildControls(){
+ const sb=$('#switchBtns'); Object.keys(switches).forEach(n=>{const b=document.createElement('button');b.className='btn';b.id=`swbtn${n}`;b.textContent=`${n}: +`;b.onclick=()=>toggleSwitch(+n);sb.append(b)});
+ const sig=$('#signalBtns'); Object.keys(signals).forEach(n=>{const b=document.createElement('button');b.className='btn';b.textContent=n;b.dataset.sig=n;b.onclick=()=>toggleSignal(n);sig.append(b)});
+}
+function toggleSwitch(n){if(Object.values(activeRoutes()).some(r=>r.sw[n])) return log(`Стрелка ${n}: заблокирована маршрутом`);switches[n]=switches[n]==='+'?'-':'+';renderSwitch(n);log(`Стрелка ${n} переведена в положение ${switches[n]}`)}
+function renderSwitch(n){$('#swbtn'+n).textContent=`${n}: ${switches[n]}`;const g=$('#sw'+n);g.querySelectorAll('.switch').forEach(p=>p.classList.toggle('minus',switches[n]==='-'));g.querySelectorAll('.switch').forEach(p=>p.classList.toggle('plus',switches[n]==='+'));}
+function toggleSignal(n){if(signals[n]==='blue'){return log(`Маневровый ${n}: управляется маршрутом/пригласительным`)} signals[n]=signals[n]==='green'?'red':'green';renderSignal(n);log(`Светофор ${n}: ${signals[n]==='green'?'открыт':'закрыт'}`)}
+function renderSignal(n){const el=document.querySelector(`[data-signal="${n}"] circle`);el.classList.remove('sig-red','sig-green','sig-yellow','sig-white','sig-blue');el.classList.add(signals[n]==='green'?'sig-green':signals[n]==='yellow'?'sig-yellow':signals[n]==='white'?'sig-white':'sig-red');}
+function activeRoutes(){return Object.fromEntries(Object.entries(routes).filter(([k])=>document.querySelector(`[data-route-row="${k}"]`)))}
+function conflict(r){for(const [k,a] of Object.entries(activeRoutes())){if(k===selectedRoute)continue; for(const n of Object.keys(r.sw)){if(a.sw[n]&&a.sw[n]!==r.sw[n])return `стрелка ${n} занята другим маршрутом`;} if(a.from===r.from||a.to===r.to)return `конфликт с маршрутом ${a.text}`}return null}
+function setRoute(){if(!selectedRoute){return log('Маршрут не выбран')}const r=routes[selectedRoute];const c=conflict(r);if(c)return log(`Маршрут ${r.text} не установлен: ${c}`);for(const [n,pos] of Object.entries(r.sw)){switches[n]=pos;renderSwitch(+n)}
+ // маршрут N никогда не управляет маневровыми сигналами; маневровый режим независим
+ signals[r.from]=r.kind==='shunt'?(invite?'yellow':'white'):'green';renderSignal(r.from);
+ const row=document.createElement('div');row.className='route-row selected';row.dataset.routeRow=selectedRoute;row.innerHTML=`<span>${r.text}${invite?' · пригласительный':''}</span><span class="state ok">УСТАНОВЛЕН</span>`;$('#routeList').querySelector('.hint')?.remove();$('#routeList').append(row);
+ $('#routeState').textContent=r.text;log(`Установлен маршрут ${r.text}. Стрелки зафиксированы.`);drawRoute(r);selectedRoute=null;invite=false;updateButtons();}
+function drawRoute(r){const p=$('#routePath');const paths={'N-N1':'M385 250 H790','NZ-N':'M1000 250 H865 H790','N1-NS':'M790 250 L865 185','NS-CS':'M865 185 L790 250 L650 250 L500 250 L445 330','C-C1':'M790 390 L865 395 L1000 375','C-C2':'M790 390 L865 420 L1000 375','C1-CZ':'M865 395 L1000 375','CZ-NZ':'M1000 375 L1000 250','M1-N1':'M675 280 L790 250','M2-C2':'M675 350 L790 390','M4-M6':'M520 455 L540 520'};p.setAttribute('d',paths[r.text.replace(' → ','-')]||'');p.classList.add('locked');}
+function cancelAll(){document.querySelectorAll('[data-route-row]').forEach(e=>e.remove());if(!$('#routeList').children.length)$('#routeList').innerHTML='<div class="hint">Нет установленных маршрутов</div>';Object.keys(signals).forEach(n=>{signals[n]=n.startsWith('M')?'blue':'red';renderSignal(n)});$('#routePath').setAttribute('d','');$('#routePath').classList.remove('locked');$('#routeState').textContent='Нет';log('Все маршруты отменены, сигналы закрыты.');}
+function updateButtons(){ $$('.btn[data-route]').forEach(b=>b.classList.toggle('active',b.dataset.route===selectedRoute));}
+$$('.btn[data-route]').forEach(b=>b.onclick=()=>{selectedRoute=b.dataset.route;updateButtons();log(`Выбран маршрут ${routes[selectedRoute].text}`)});
+$('#setRoute').onclick=setRoute;$('#cancelRoute').onclick=cancelAll;$('#closeAll').onclick=cancelAll;
+$('#invite').onclick=()=>{invite=!invite;$('#invite').classList.toggle('active',invite);log(`Пригласительный режим: ${invite?'ВКЛ':'ВЫКЛ'}`)};
+$$('.sig').forEach(g=>g.addEventListener('click',()=>{const n=g.dataset.signal;if(!routeStart){routeStart=n;log(`Начало маршрута: ${n}`)}else if(!routeEnd){routeEnd=n;const key=`${routeStart}-${routeEnd}`;if(routes[key]){selectedRoute=key;updateButtons();log(`Маршрут ${routes[key].text} выбран по схеме`)}else log(`Маршрут ${routeStart} → ${routeEnd} пока не задан в таблице маршрутов`);routeStart=routeEnd=null}else{routeStart=routeEnd=null}}));
+$$('.switch-hit').forEach(x=>x.addEventListener('click',e=>{const n=+e.target.closest('g').id.replace('sw','');toggleSwitch(n)}));
+function tick(){const d=new Date();$('#clock').textContent=d.toLocaleTimeString('ru-RU')}setInterval(tick,1000);tick();buildControls();Object.keys(switches).forEach(n=>renderSwitch(+n));Object.keys(signals).forEach(renderSignal);log('Симулятор готов. Все основные стрелки и светофоры доступны для управления.');
+</script>
+</body>
+</html>
